@@ -4,10 +4,11 @@ import numpy as np
 from scipy.sparse.linalg import lsmr
 from SparseMatrixConstructor import SparseMatrix
 import math
-import pandas
+import pandas as pd
+
 
 class FRCDataProcessor(object):
-    def __init__(self, authKey, year):
+    def __init__(self, authKey, year, data=None):
         self.headers = {
             'accept': 'application/json',
             'X-TBA-Auth-Key': authKey,
@@ -19,9 +20,50 @@ class FRCDataProcessor(object):
         self.numberOfValidMatches = None
         self.percentageOfValidMatches = None
         self.teamList = None
+        self.data = data
 
     def collectMatchesDataFrame(self):
-        return None
+        totalMatches = 0
+        validMatches = 0
+        fileCounter = 0
+        total_match_list = pd.DataFrame()
+        team_list = []
+        Events_response = requests.get('https://www.thebluealliance.com/api/v3/events/' + self.year + '/keys',
+                                       headers=self.headers)
+        Events_json = Events_response.json()
+        for i in range(len(Events_json)):
+            print(i / len(Events_json))
+            eventMatches = requests.get(
+                'https://www.thebluealliance.com/api/v3/event/' + Events_json[i] + '/matches', headers=self.headers
+            ).json()
+            totalMatches += len(eventMatches)
+            if len(eventMatches) > 0 and eventMatches[0]["score_breakdown"] is not None:
+                fileCounter += 1
+                validMatches += len(eventMatches)
+                for event_match in eventMatches:
+                    # match_list[event_match["key"]] = event_match
+                    match_list =  pd.json_normalize(event_match)
+                    total_match_list = total_match_list.append(match_list)
+                    #match_list.to_pickle("MatchData/Matches/"+event_match["key"]+".pkl.xz", compression="infer")
+                    for team in event_match["alliances"]["blue"]["team_keys"]:
+                        team_list.append(team)
+                    for team in event_match["alliances"]["red"]["team_keys"]:
+                        team_list.append(team)
+                    team_list = list(dict.fromkeys(team_list))
+        total_match_list.to_pickle("MatchData/data2020.pkl.xz", compression="infer")
+        #total_match_list.to_csv("MatchData/data.csv")
+        team_list.sort()
+        with open('Results/SortedTeamList' + self.year + '.txt', 'w') as f:
+            for item in team_list:
+                f.write("%s\n" % item)
+        self.data = total_match_list
+        self.numberOfMatches = totalMatches
+        self.numberOfFiles = math.ceil(fileCounter / 2)
+        print(self.numberOfFiles)
+        self.numberOfValidMatches = validMatches
+        self.percentageOfValidMatches = round(validMatches / totalMatches, 2)
+        self.teamList = team_list
+        self.numberOfTeams = len(team_list)
 
     def collectMatchesJSON(self):
         totalMatches = 0
@@ -54,7 +96,7 @@ class FRCDataProcessor(object):
                         match_list = {}
 
         team_list.sort()
-        with open('Results/SortedTeamList'+self.year+'.txt', 'w') as f:
+        with open('Results/SortedTeamList' + self.year + '.txt', 'w') as f:
             for item in team:
                 f.write("%s\n" % item)
 
@@ -96,8 +138,10 @@ class FRCDataProcessor(object):
         ans = lsmr(A, B)[0]
         np.savetxt("Results/" + x + "PR.txt", ans)
 
-    def PCA(self,numberOfComponents):
+    def PCA(self, numberOfComponents):
         return None
 
-
-
+    @staticmethod
+    def readpkl():
+        df = pd.read_pickle("MatchData/data.pkl.xz",compression="infer")
+        print(df)
