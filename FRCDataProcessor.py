@@ -67,7 +67,7 @@ class FRCDataProcessor(object):
                             team_list.append(team)
                         team_list = list(dict.fromkeys(team_list))
         print("Creating Dataframe")
-        pdMatchList = pd.DataFrame.from_dict(total_match_list, orient="rows")
+        pdMatchList = pd.DataFrame.from_dict(total_match_list, orient='index')
         pdMatchList.to_pickle("MatchData/data" + str(self.year) + ".pkl.xz", compression="infer")
         # total_match_list.to_csv("MatchData/data.csv")
         team_list.sort()
@@ -129,11 +129,12 @@ class FRCDataProcessor(object):
         sparseB = SparseMatrix((self.numberOfValidMatches * 2, 1), np.int32)
         for index, row in self.data.iterrows():  # TODO: Replace with Splicing Columns
             u = 0
-            match_blue_teams = row["alliances.blue.team_keys"]
-            match_red_teams = row["alliances.red.team_keys"]
-            print(row["key"])
-            sparseB.append(2 * u, 0, int(row["score_breakdown.blue." + x]))
-            sparseB.append(2 * u + 1, 0, int(row["score_breakdown.red." + x]))
+            match_blue_teams = [row["alliances_blue_team_keys_0"], row["alliances_blue_team_keys_1"],
+                                row["alliances_blue_team_keys_2"]]
+            match_red_teams = [row["alliances_red_team_keys_0"], row["alliances_red_team_keys_1"],
+                               row["alliances_red_team_keys_2"]]
+            sparseB.append(2 * u, 0, int(row["score_breakdown_blue_" + x]))
+            sparseB.append(2 * u + 1, 0, int(row["score_breakdown_red_" + x]))
             for team in match_blue_teams:
                 sparseA.append(2 * u, self.findTeam(team), 1)
             for team in match_red_teams:
