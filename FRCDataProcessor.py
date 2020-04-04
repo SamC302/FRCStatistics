@@ -155,12 +155,22 @@ class FRCDataProcessor(object):
         print(self.currentXPR)
         np.savetxt("Results/" + x + "PR.txt", ans)
 
-    def PCA(self, numberOfComponents):
-        features = ["score_breakdown_blue_cargoPoints", "score_breakdown_blue_foulPoints",
-                    "score_breakdown_blue_habClimbPoints", "score_breakdown_blue_hatchPanelPoints",
-                    "score_breakdown_blue_sandStormBonusPoints"]
-        print(self.data)
-        x = self.data.loc[:, features].values
+    def PCA(self, numberOfComponents):  # TODO: Provide feature list as arg
+        featuresA = ["score_breakdown_blue_cargoPoints", "score_breakdown_blue_foulPoints",
+                     "score_breakdown_blue_habClimbPoints", "score_breakdown_blue_hatchPanelPoints",
+                     "score_breakdown_blue_sandStormBonusPoints"]
+        featuresB = ["score_breakdown_red_cargoPoints", "score_breakdown_red_foulPoints",
+                     "score_breakdown_red_habClimbPoints", "score_breakdown_red_hatchPanelPoints",
+                     "score_breakdown_red_sandStormBonusPoints"]
+        x = self.data.loc[:, featuresA]
+        x.columns = ["score_breakdown_cargoPoints", "score_breakdown_foulPoints",
+                     "score_breakdown_habClimbPoints", "score_breakdown_hatchPanelPoints",
+                     "score_breakdown_sandStormBonusPoints"]
+        b = self.data.loc[:, featuresB]
+        b.columns = ["score_breakdown_cargoPoints", "score_breakdown_foulPoints",
+                     "score_breakdown_habClimbPoints", "score_breakdown_hatchPanelPoints",
+                     "score_breakdown_sandStormBonusPoints"]
+        x = x.sub(b, fill_value=0).values
         y = self.data.loc[:, ['alliances_blue_score']].values
         np.savetxt("Results/PCATest.txt", x)
         x = StandardScaler().fit_transform(x)
@@ -171,9 +181,8 @@ class FRCDataProcessor(object):
                                    , columns=['principal component 1', 'principal component 2', 'principal component 3',
                                               'principal component 4', 'principal component 5'])
         finalDf = pd.concat([principalDf, self.data[['alliances_blue_score']]], axis=1)
-        print(finalDf)
-        print(pca.explained_variance_ratio_)
-        return finalDf
+        finalDf.to_pickle("Results/PCAResult.pkl.xz")
+        return finalDf, pca.explained_variance_ratio_
 
     @staticmethod
     def readpkl():
