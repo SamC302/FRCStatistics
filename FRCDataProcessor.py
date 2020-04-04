@@ -87,49 +87,6 @@ class FRCDataProcessor(object):
         self.teamList = pd.Series(team_list)
         self.numberOfTeams = len(team_list)
 
-    def collectMatchesJSON(self):
-        totalMatches = 0
-        validMatches = 0
-        fileCounter = 0
-        match_list = {}
-        team_list = []
-        Events_response = requests.get('https://www.thebluealliance.com/api/v3/events/' + self.year + '/keys',
-                                       headers=self.headers)
-        Events_json = Events_response.json()
-        for i in range(len(Events_json)):
-            eventMatches = requests.get(
-                'https://www.thebluealliance.com/api/v3/event/' + Events_json[i] + '/matches', headers=self.headers
-            ).json()
-            totalMatches += len(eventMatches)
-            if len(eventMatches) > 0 and eventMatches[0]["score_breakdown"] is not None:
-                fileCounter += 1
-                validMatches += len(eventMatches)
-                for event_match in eventMatches:
-                    match_list[event_match["key"]] = event_match
-                    for team in event_match["alliances"]["blue"]["team_keys"]:
-                        team_list.append(team)
-                    for team in event_match["alliances"]["red"]["team_keys"]:
-                        team_list.append(team)
-                    team_list = list(dict.fromkeys(team_list))
-                if fileCounter % 2 == 0 or i == len(eventMatches):
-                    with open('MatchData/MatchData' + self.year + '/' + str(round(fileCounter / 2, 1)) + '.json',
-                              'w') as outfile:
-                        json.dump(match_list, outfile, indent=4)
-                        match_list = {}
-
-        team_list.sort()
-        with open('Results/SortedTeamList' + self.year + '.txt', 'w') as f:
-            for item in team:
-                f.write("%s\n" % item)
-
-        self.numberOfMatches = totalMatches
-        self.numberOfFiles = math.ceil(fileCounter / 2)
-        print(self.numberOfFiles)
-        self.numberOfValidMatches = validMatches
-        self.percentageOfValidMatches = round(validMatches / totalMatches, 2)
-        self.teamList = team_list
-        self.numberOfTeams = len(team_list)
-
     def XPR(self, x):
         sparseA = SparseMatrix((self.numberOfValidMatches * 2, len(self.teamList)), np.int32)
         sparseB = SparseMatrix((self.numberOfValidMatches * 2, 1), np.int32)
@@ -155,21 +112,14 @@ class FRCDataProcessor(object):
         print(self.currentXPR)
         np.savetxt("Results/" + x + "PR.txt", ans)
 
-    def PCA(self, numberOfComponents):  # TODO: Provide feature list as arg
-        featuresA = ["score_breakdown_blue_cargoPoints", "score_breakdown_blue_foulPoints",
-                     "score_breakdown_blue_habClimbPoints", "score_breakdown_blue_hatchPanelPoints",
-                     "score_breakdown_blue_sandStormBonusPoints"]
-        featuresB = ["score_breakdown_red_cargoPoints", "score_breakdown_red_foulPoints",
-                     "score_breakdown_red_habClimbPoints", "score_breakdown_red_hatchPanelPoints",
-                     "score_breakdown_red_sandStormBonusPoints"]
+    def PCA(self, numberOfComponents, features):  # TODO: Provide feature list as arg
+
+        featuresA = [i[:15] + "_blue" + i[15:] for i in features]
+        featuresB = [i[:15] + "_red" + i[15:] for i in features]
         x = self.data.loc[:, featuresA]
-        x.columns = ["score_breakdown_cargoPoints", "score_breakdown_foulPoints",
-                     "score_breakdown_habClimbPoints", "score_breakdown_hatchPanelPoints",
-                     "score_breakdown_sandStormBonusPoints"]
+        x.columns = features
         b = self.data.loc[:, featuresB]
-        b.columns = ["score_breakdown_cargoPoints", "score_breakdown_foulPoints",
-                     "score_breakdown_habClimbPoints", "score_breakdown_hatchPanelPoints",
-                     "score_breakdown_sandStormBonusPoints"]
+        b.columns = features
         x = x.sub(b, fill_value=0).values
         y = self.data.loc[:, ['alliances_blue_score']].values
         np.savetxt("Results/PCATest.txt", x)
@@ -178,16 +128,13 @@ class FRCDataProcessor(object):
         pca = PCA(n_components=numberOfComponents)
         principalComponents = pca.fit_transform(x)
         principalDf = pd.DataFrame(data=principalComponents
-                                   , columns=['principal component 1', 'principal component 2', 'principal component 3',
-                                              'principal component 4', 'principal component 5'])
-        finalDf = pd.concat([principalDf, self.data[['alliances_blue_score']]], axis=1)
+                                   ,
+                                   columns=['principal component ' + str(i) for i in range(1, numberOfComponents + 1)])
+        dif = self.data.loc[:, 'alliances_blue_score'].sub(self.data.loc[:, 'alliances_red_score']).reset_index(
+            drop=True)
+        finalDf = pd.concat([principalDf, dif], axis=1)
         finalDf.to_pickle("Results/PCAResult.pkl.xz")
         return finalDf, pca.explained_variance_ratio_
-
-    @staticmethod
-    def readpkl():
-        df = pd.read_pickle("MatchData/data2019.pkl.xz", compression="infer")
-        print(df)
 
     def readTeamListfromtxt(self, year):
         teamList = []
