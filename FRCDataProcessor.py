@@ -6,6 +6,8 @@ from SparseMatrixConstructor import SparseMatrix
 import math
 import pandas as pd
 from pathlib import Path
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 
 class FRCDataProcessor(object):
@@ -55,7 +57,7 @@ class FRCDataProcessor(object):
             totalMatches += len(eventMatches)
             if len(eventMatches) > 0:
                 for event_match in eventMatches:
-                    if event_match["score_breakdown"] is not None:
+                    if not self.checkIfNone(event_match):
                         validMatches += 1
                         # match_list[event_match["key"]] = event_match
                         match = self.flatten_json(event_match)
@@ -68,6 +70,10 @@ class FRCDataProcessor(object):
                         team_list = list(dict.fromkeys(team_list))
         print("Creating Dataframe")
         pdMatchList = pd.DataFrame.from_dict(total_match_list, orient='index')
+        badColumns = pdMatchList.isna().any()
+        for index, item in badColumns.iteritems():
+            if item:
+                pdMatchList = pdMatchList.drop(index, 1)
         pdMatchList.to_pickle("MatchData/data" + str(self.year) + ".pkl.xz", compression="infer")
         # total_match_list.to_csv("MatchData/data.csv")
         team_list.sort()
@@ -150,7 +156,24 @@ class FRCDataProcessor(object):
         np.savetxt("Results/" + x + "PR.txt", ans)
 
     def PCA(self, numberOfComponents):
-        return None
+        features = ["score_breakdown_blue_cargoPoints", "score_breakdown_blue_foulPoints",
+                    "score_breakdown_blue_habClimbPoints", "score_breakdown_blue_hatchPanelPoints",
+                    "score_breakdown_blue_sandStormBonusPoints"]
+        print(self.data)
+        x = self.data.loc[:, features].values
+        y = self.data.loc[:, ['alliances_blue_score']].values
+        np.savetxt("Results/PCATest.txt", x)
+        x = StandardScaler().fit_transform(x)
+        y = StandardScaler().fit_transform(y)
+        pca = PCA(n_components=numberOfComponents)
+        principalComponents = pca.fit_transform(x)
+        principalDf = pd.DataFrame(data=principalComponents
+                                   , columns=['principal component 1', 'principal component 2', 'principal component 3',
+                                              'principal component 4', 'principal component 5'])
+        finalDf = pd.concat([principalDf, self.data[['alliances_blue_score']]], axis=1)
+        print(finalDf)
+        print(pca.explained_variance_ratio_)
+        return finalDf
 
     @staticmethod
     def readpkl():
@@ -186,3 +209,10 @@ class FRCDataProcessor(object):
 
         flatten(y)
         return out
+
+    @staticmethod
+    def checkIfNone(data):
+        y = pd.Series(data)
+        x = y.isna()
+        z = x.any()
+        return z
