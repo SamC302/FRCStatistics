@@ -1,9 +1,7 @@
 import requests
-import json
 import numpy as np
 from scipy.sparse.linalg import lsmr
 from SparseMatrixConstructor import SparseMatrix
-import math
 import pandas as pd
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
@@ -112,7 +110,7 @@ class FRCDataProcessor(object):
         print(self.currentXPR)
         np.savetxt("Results/" + x + "PR.txt", ans)
 
-    def PCA(self, numberOfComponents, features):  # TODO: Provide feature list as arg
+    def PCA(self, numberOfComponents, features):
 
         featuresA = [i[:15] + "_blue" + i[15:] for i in features]
         featuresB = [i[:15] + "_red" + i[15:] for i in features]
