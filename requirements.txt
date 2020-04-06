@@ -1,3 +1,5 @@
+pydrive
+torch
 requests
 numpy
 scipy
