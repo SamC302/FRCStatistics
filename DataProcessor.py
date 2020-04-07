@@ -1,15 +1,20 @@
 import requests
 import numpy as np
+import sklearn
 from scipy.sparse.linalg import lsmr
 from SparseMatrixConstructor import SparseMatrix
 import pandas as pd
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import plot_confusion_matrix
+from sklearn import metrics
+import matplotlib as plt
 import torch as t
 
 
-class FRCDataProcessor(object):
+class DataProcessor(object):
     def __init__(self, authKey, year, data=None, teamList=None):
         self.headers = {
             'accept': 'application/json',
@@ -171,3 +176,54 @@ class FRCDataProcessor(object):
         x = y.isna()
         z = x.any()
         return z
+
+    def publish(self):
+        return None
+
+    def consistency(self, attribute, team=None):
+        return None
+
+    # Next two functions are standins until Team Data is finished
+    def TreeClassifier(self):
+        features = ["score_breakdown_cargoPoints", "score_breakdown_foulPoints",
+                    "score_breakdown_habClimbPoints", "score_breakdown_hatchPanelPoints",
+                    "score_breakdown_sandStormBonusPoints", "score_breakdown_autoPoints"]
+        featuresA = [i[:15] + "_blue" + i[15:] for i in features]
+        featuresB = [i[:15] + "_red" + i[15:] for i in features]
+        x = self.data.loc[:, featuresA]
+        x.columns = features
+        b = self.data.loc[:, featuresB]
+        b.columns = features
+        x = x.sub(b, fill_value=0).values
+        y = self.data.loc[:, "winning_alliance"]
+        z = y.apply(lambda x: 0 if x == "red" else 1)
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(x, z, test_size=0.20)
+        print(X_train.shape)
+        classifier = DecisionTreeClassifier(criterion="gini", max_depth=50)
+        classifier.fit(X_train, y_train)
+        y_pred = classifier.predict(X_test)
+        print(y_pred.shape)
+        print(sklearn.metrics.confusion_matrix(y_test, y_pred))
+        print(sklearn.metrics.classification_report(y_test, y_pred))
+
+    def TreeRegressor(self):
+        features = ["score_breakdown_cargoPoints", "score_breakdown_foulPoints",
+                    "score_breakdown_habClimbPoints", "score_breakdown_hatchPanelPoints",
+                    "score_breakdown_sandStormBonusPoints", "score_breakdown_autoPoints", "score_breakdown_totalPoints"]
+        featuresA = [i[:15] + "_blue" + i[15:] for i in features]
+        featuresB = [i[:15] + "_red" + i[15:] for i in features]
+        x = self.data.loc[:, featuresA]
+        x.columns = features
+        b = self.data.loc[:, featuresB]
+        b.columns = features
+        o = pd.concat([x, b])
+        print(o)
+        z = o.drop("score_breakdown_totalPoints", axis=1)
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(o, z, test_size=0.20)
+        print(X_train.shape)
+        classifier = DecisionTreeClassifier(criterion="gini", max_depth=50)
+        classifier.fit(X_train, y_train)
+        y_pred = classifier.predict(X_test)
+        print('Mean Absolute Error:', metrics.mean_absolute_error(y_test, y_pred))
+        print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))
+        print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
