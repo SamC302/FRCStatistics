@@ -1,8 +1,11 @@
+import httplib2
 import requests
 import numpy as np
 import sklearn
+from googleapiclient import discovery
+from oauth2client.service_account import ServiceAccountCredentials
 from scipy.sparse.linalg import lsmr
-from SparseMatrixConstructor import SparseMatrix
+from Objects.SparseMatrixConstructor import SparseMatrix
 import pandas as pd
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
@@ -10,8 +13,6 @@ from sklearn.decomposition import PCA
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import plot_confusion_matrix
 from sklearn import metrics
-import matplotlib as plt
-import torch as t
 
 
 class DataProcessor(object):
@@ -48,7 +49,6 @@ class DataProcessor(object):
     def collectMatchesDataFrame(self):
         totalMatches = 0
         validMatches = 0
-        total_match_list = {}
         team_list = []
         Events_response = requests.get('https://www.thebluealliance.com/api/v3/events/' + str(self.year) + '/keys',
                                        headers=self.headers)
@@ -61,6 +61,7 @@ class DataProcessor(object):
             totalMatches += len(eventMatches)
             if len(eventMatches) > 0:
                 for event_match in eventMatches:
+                    total_match_list = {}
                     if not self.checkIfNone(event_match):
                         validMatches += 1
                         # match_list[event_match["key"]] = event_match
@@ -72,14 +73,15 @@ class DataProcessor(object):
                         for team in event_match["alliances"]["red"]["team_keys"]:
                             team_list.append(team)
                         team_list = list(dict.fromkeys(team_list))
-        print("Creating Dataframe")
-        pdMatchList = pd.DataFrame.from_dict(total_match_list, orient='index')
-        badColumns = pdMatchList.isna().any()
-        for index, item in badColumns.iteritems():
-            if item:
-                pdMatchList = pdMatchList.drop(index, 1)
-        pdMatchList.to_pickle("MatchData/data" + str(self.year) + ".pkl.xz", compression="infer")
-        # total_match_list.to_csv("MatchData/data.csv")
+                print("Creating Dataframe")
+                pdMatchList = pd.DataFrame.from_dict(total_match_list, orient='index')
+                badColumns = pdMatchList.isna().any()
+                for index, item in badColumns.iteritems():
+                    if item:
+                        pdMatchList = pdMatchList.drop(index, 1)
+                pdMatchList.to_pickle("MatchData/Events/data" + eventMatches[0]["event_key"] + ".pkl.xz",
+                                      compression="infer")
+                # total_match_list.to_csv("MatchData/data.csv")
         team_list.sort()
         with open('Results/SortedTeamList' + str(self.year) + '.txt', 'w') as f:
             for item in team_list:
@@ -178,7 +180,24 @@ class DataProcessor(object):
         return z
 
     def publish(self):
-        return None
+        SCOPES = 'https://www.googleapis.com/auth/drive'
+
+        # This points to the JSON key file for the service account
+        # You should have downloaded the file when creating your service account
+        # It should be in the same directory as this script
+        KEY_FILE_NAME = '../Credentials/our-audio-273419-1865397ccbc2.json'
+        print("Acquiring credentials...")
+        credentials = ServiceAccountCredentials.from_json_keyfile_name(filename=KEY_FILE_NAME, scopes=SCOPES)
+
+        # Has to check the credentials with the Google servers
+        print("Authorizing...")
+        http = credentials.authorize(httplib2.Http())
+
+        # Build the service object for use with any API
+        print("Acquiring service...")
+        service = discovery.build(serviceName="drive", version="v3", credentials=credentials)
+
+        print("Service acquired!")
 
     def consistency(self, attribute, team=None):
         return None
