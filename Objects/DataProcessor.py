@@ -199,9 +199,6 @@ class DataProcessor(object):
 
         print("Service acquired!")
 
-    def consistency(self, attribute, team=None):
-        return None
-
     # Next two functions are standins until Team Data is finished
     def TreeClassifier(self):
         features = ["score_breakdown_cargoPoints", "score_breakdown_foulPoints",
