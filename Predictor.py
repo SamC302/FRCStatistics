@@ -4,6 +4,5 @@ from Objects.Team import Team
 
 # authkey is C6StJN6kweYGKqhV5iQURbWX2vRudwcjJYwBobcxINlbAKurqR35lRQsHwc9eQ5c
 
-T = Team(1885, 2019, "C6StJN6kweYGKqhV5iQURbWX2vRudwcjJYwBobcxINlbAKurqR35lRQsHwc9eQ5c")
-T.collectTBAData()
-T.consistency(["alliances_blue_score", "alliances_red_score"])
+P = DataProcessor("C6StJN6kweYGKqhV5iQURbWX2vRudwcjJYwBobcxINlbAKurqR35lRQsHwc9eQ5c", 2019)
+print(P.tTestPredictor([4099, 4099, 4099], [4099, 4099, 4099]))

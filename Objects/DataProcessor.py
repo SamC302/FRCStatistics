@@ -13,6 +13,8 @@ from sklearn.decomposition import PCA
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import plot_confusion_matrix
 from sklearn import metrics
+from Objects.Team import Team
+import scipy.stats as sStats
 
 
 class DataProcessor(object):
@@ -45,6 +47,7 @@ class DataProcessor(object):
         self.numberOfValidMatches = self.data.shape[0]
         self.percentageOfValidMatches = None
         self.currentXPR = None
+        self.authKey = authKey
 
     def collectMatchesDataFrame(self):
         totalMatches = 0
@@ -243,3 +246,32 @@ class DataProcessor(object):
         print('Mean Absolute Error:', metrics.mean_absolute_error(y_test, y_pred))
         print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))
         print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
+
+    def tTestPredictor(self, blueTeamList, redTeamList):  # TODO: Create testing Function
+        blueStats = [0, 0, 0]
+        redStats = [0, 0, 0]
+
+        for team in blueTeamList:
+            T = Team(team, self.year, self.authKey)
+            teamStats = T.totalScoreStats(["mean", "std"])
+            blueStats[0] += teamStats[0]
+            blueStats[1] = np.sqrt(pow(blueStats[1], 2) + pow(teamStats[1], 2))
+            blueStats[2] += teamStats[2]
+
+        for team in redTeamList:
+            T = Team(team, self.year, self.authKey)
+            teamStats = T.totalScoreStats(["mean", "std"])
+            redStats[0] += teamStats[0]
+            redStats[1] = np.sqrt(pow(redStats[1], 2) + pow(teamStats[1], 2))
+            redStats[2] += teamStats[2]
+
+        tVal, p = sStats.ttest_ind_from_stats(blueStats[0], blueStats[1], blueStats[2], redStats[0], redStats[1],
+                                              redStats[2])
+        if tVal > 0:
+            return "Blue", p
+        elif tVal < 0:
+            return "Red", p
+        elif tVal == 0:
+            return "Neither", p
+        else:
+            return "-1", p

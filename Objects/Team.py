@@ -14,6 +14,7 @@ class Team(object):
         }
         self.data = None
         self.validMatches = 0
+        self.collectTBAData()
 
     def collectTBAData(self):
         matchesResponse = requests.get(
@@ -36,13 +37,16 @@ class Team(object):
     def collectScoutingData(self):
         return None
 
-    def consistency(self, features):
+    def totalScoreStats(self, stats):
         data = pd.Series()
-        for feature in features:
+        fullList = []
+        for feature in ["alliances_blue_score", "alliances_red_score"]:
             data = data.append(self.data.loc[:, feature])
-        variance = stat.variance(data)
-        print(variance)
-        print(np.std(data))
+        for s in stats:
+            expr = "np." + str(s) + "(data)"
+            fullList.append(eval(expr))
+        fullList.append(len(data))
+        return fullList
 
     @staticmethod
     def flatten_json(y):
