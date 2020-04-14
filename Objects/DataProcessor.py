@@ -15,6 +15,7 @@ from sklearn.metrics import plot_confusion_matrix
 from sklearn import metrics
 from Objects.Team import Team
 import scipy.stats as sStats
+import torch
 
 
 class DataProcessor(object):
@@ -57,6 +58,7 @@ class DataProcessor(object):
                                        headers=self.headers)
         Events_json = Events_response.json()
         for i in range(len(Events_json)):
+            total_match_list = {}
             print(i / len(Events_json))
             eventMatches = requests.get(
                 'https://www.thebluealliance.com/api/v3/event/' + Events_json[i] + '/matches', headers=self.headers
@@ -64,7 +66,6 @@ class DataProcessor(object):
             totalMatches += len(eventMatches)
             if len(eventMatches) > 0:
                 for event_match in eventMatches:
-                    total_match_list = {}
                     if not self.checkIfNone(event_match):
                         validMatches += 1
                         # match_list[event_match["key"]] = event_match
@@ -76,14 +77,14 @@ class DataProcessor(object):
                         for team in event_match["alliances"]["red"]["team_keys"]:
                             team_list.append(team)
                         team_list = list(dict.fromkeys(team_list))
-                print("Creating Dataframe")
                 pdMatchList = pd.DataFrame.from_dict(total_match_list, orient='index')
                 badColumns = pdMatchList.isna().any()
                 for index, item in badColumns.iteritems():
                     if item:
                         pdMatchList = pdMatchList.drop(index, 1)
-                pdMatchList.to_pickle("MatchData/Events/data" + eventMatches[0]["event_key"] + ".pkl.xz",
-                                      compression="infer")
+                if len(pdMatchList) > 0:
+                    pdMatchList.to_pickle("MatchData/Events/data" + eventMatches[0]["event_key"] + ".pkl.xz",
+                                          compression="infer")
                 # total_match_list.to_csv("MatchData/data.csv")
         team_list.sort()
         with open('Results/SortedTeamList' + str(self.year) + '.txt', 'w') as f:
@@ -275,3 +276,6 @@ class DataProcessor(object):
             return "Neither", p
         else:
             return "-1", p
+
+    def neuralNetworkPredictor19(self):
+        Dataset = self.datasetCreator19()
