@@ -16,6 +16,7 @@ from sklearn import metrics
 from Objects.Team import Team
 import scipy.stats as sStats
 import torch
+import os
 
 
 class DataProcessor(object):
@@ -25,6 +26,7 @@ class DataProcessor(object):
             'X-TBA-Auth-Key': authKey,
         }
         self.year = year
+        self.authKey = authKey
 
         d = Path("MatchData/data" + str(year) + ".pkl.xz")
         if data is not None:
@@ -48,7 +50,7 @@ class DataProcessor(object):
         self.numberOfValidMatches = self.data.shape[0]
         self.percentageOfValidMatches = None
         self.currentXPR = None
-        self.authKey = authKey
+
 
     def collectMatchesDataFrame(self):
         totalMatches = 0
@@ -151,6 +153,12 @@ class DataProcessor(object):
         with open("Results/SortedTeamList" + str(year) + ".txt") as f:
             for line in f:
                 teamList.append(line.strip())
+        i = 0
+        for team in teamList:
+            print(i/len(teamList))
+            T = Team(team,self.year, self.authKey)
+            i += 1
+            #TODO: Team should only pull matches from cleaned Data pickle
         self.teamList = pd.Series(teamList)
         self.teamList.to_pickle("Results/SortedTeamList" + str(year) + ".pkl.xz")
 
@@ -269,13 +277,33 @@ class DataProcessor(object):
         tVal, p = sStats.ttest_ind_from_stats(blueStats[0], blueStats[1], blueStats[2], redStats[0], redStats[1],
                                               redStats[2])
         if tVal > 0:
-            return "Blue", p
+            return "blue", p
         elif tVal < 0:
-            return "Red", p
+            return "red", p
         elif tVal == 0:
-            return "Neither", p
+            return "neither", p
         else:
             return "-1", p
 
+    def testTtestPredictor(self):
+        totalCount = 0
+        correctCount = 0
+        for event in os.listdir("C:/Users/samch/PycharmProjects/FRCStatistics/MatchData/Events"):
+            df = pd.read_pickle("C:/Users/samch/PycharmProjects/FRCStatistics/MatchData/Events/"+event)
+            totalCount = 0
+            correctCount = 0
+            for index,row in df.iterrows():
+                print(totalCount/20000)
+                totalCount += 1
+                blueTeams = [row.loc["alliances_blue_team_keys_0"],row.loc["alliances_blue_team_keys_1"],row.loc["alliances_blue_team_keys_2"]]
+                redTeams = [row.loc["alliances_red_team_keys_0"],row.loc["alliances_red_team_keys_1"],row.loc["alliances_red_team_keys_2"]]
+                winningTeam, p = self.tTestPredictor(blueTeams,redTeams)
+                if row.loc["winning_alliance"] == winningTeam:
+                    correctCount += 1
+            print("//////////////////////////////////////")
+            print(correctCount/totalCount)
+            print(totalCount)
+            print("//////////////////////////////////////")
+        return correctCount/totalCount,totalCount
     def neuralNetworkPredictor19(self):
         Dataset = self.datasetCreator19()

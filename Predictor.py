@@ -5,4 +5,6 @@ from Objects.Team import Team
 # authkey is C6StJN6kweYGKqhV5iQURbWX2vRudwcjJYwBobcxINlbAKurqR35lRQsHwc9eQ5c
 
 P = DataProcessor("C6StJN6kweYGKqhV5iQURbWX2vRudwcjJYwBobcxINlbAKurqR35lRQsHwc9eQ5c", 2019)
-P.collectMatchesDataFrame()
+# percentageCorrect, total = P.testTtestPredictor()
+# print(percentageCorrect)
+# print(total)

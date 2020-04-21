@@ -2,11 +2,15 @@ import pandas as pd
 import numpy as np
 import requests
 import statistics as stat
+from pathlib import Path
 
 
 class Team(object):
     def __init__(self, number, year, authKey):
-        self.code = "frc" + str(number)
+        if number[:3] == "frc":
+            self.code = number
+        elif type(number) is int:
+            self.code = "frc" + str(number)
         self.year = year
         self.headers = {
             'accept': 'application/json',
@@ -14,7 +18,12 @@ class Team(object):
         }
         self.data = None
         self.validMatches = 0
-        self.collectTBAData()
+        t = Path("MatchData/Teams/"+self.code+".pkl.xz")
+        if t.is_file():
+            self.data = pd.read_pickle("MatchData/Teams/"+self.code+".pkl.xz")
+        else:
+            self.collectTBAData()
+        #self.primaryScoringMean, self.primaryScoringSTD, self.secondaryScoringMean, self.secondaryScoringSTD, self.autoScoringMean, self.autoScoringSTD, self.endgameScoringMean, self.endgameScoringSTD, self.foulScoringMean, self.foulScoringSTD = self.collectStats()
 
     def collectTBAData(self):
         matchesResponse = requests.get(
