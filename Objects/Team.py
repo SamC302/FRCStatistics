@@ -3,10 +3,12 @@ import numpy as np
 import requests
 import statistics as stat
 from pathlib import Path
+import Objects.DataProcessor as DataProcessor
 
 
 class Team(object):
     def __init__(self, number, year, authKey):
+        self.authKey = authKey
         if number[:3] == "frc":
             self.code = number
         elif type(number) is int:
@@ -18,24 +20,21 @@ class Team(object):
         }
         self.data = None
         self.validMatches = 0
-        t = Path("MatchData/Teams/"+self.code+".pkl.xz")
+        t = Path("MatchData/Teams/" + self.code + ".pkl.xz")
         if t.is_file():
-            self.data = pd.read_pickle("MatchData/Teams/"+self.code+".pkl.xz")
+            self.data = pd.read_pickle("MatchData/Teams/" + self.code + ".pkl.xz")
         else:
             self.collectTBAData()
-        #self.primaryScoringMean, self.primaryScoringSTD, self.secondaryScoringMean, self.secondaryScoringSTD, self.autoScoringMean, self.autoScoringSTD, self.endgameScoringMean, self.endgameScoringSTD, self.foulScoringMean, self.foulScoringSTD = self.collectStats()
+        # self.primaryScoringMean, self.primaryScoringSTD, self.secondaryScoringMean, self.secondaryScoringSTD, self.autoScoringMean, self.autoScoringSTD, self.endgameScoringMean, self.endgameScoringSTD, self.foulScoringMean, self.foulScoringSTD = self.collectStats()
 
     def collectTBAData(self):
-        matchesResponse = requests.get(
-            'https://www.thebluealliance.com/api/v3/team/' + self.code + '/matches/' + str(self.year),
-            headers=self.headers)
-        matchesJson = matchesResponse.json()
-        totalMatchesJSON = {}
-        for match in matchesJson:
-            if not self.checkIfNone(match):
-                self.validMatches += 1
-                totalMatchesJSON[match["key"]] = self.flatten_json(match)
-        teamData = pd.DataFrame.from_dict(totalMatchesJSON, orient='index')
+        yearData = DataProcessor.DataProcessor(self.authKey, self.year).data
+        teamData = yearData.loc[(yearData["alliances_blue_team_keys_0"] == self.code) | (
+                yearData["alliances_blue_team_keys_1"] == self.code) | (
+                                        yearData["alliances_blue_team_keys_2"] == self.code) | (
+                                        yearData["alliances_red_team_keys_0"] == self.code) | (
+                                        yearData["alliances_red_team_keys_1"] == self.code) | (
+                                        yearData["alliances_red_team_keys_2"] == self.code)]
         badColumns = teamData.isna().any()
         for index, item in badColumns.iteritems():
             if item:

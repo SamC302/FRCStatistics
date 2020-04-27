@@ -154,11 +154,6 @@ class DataProcessor(object):
             for line in f:
                 teamList.append(line.strip())
         i = 0
-        for team in teamList:
-            print(i/len(teamList))
-            T = Team(team,self.year, self.authKey)
-            i += 1
-            #TODO: Team should only pull matches from cleaned Data pickle
         self.teamList = pd.Series(teamList)
         self.teamList.to_pickle("Results/SortedTeamList" + str(year) + ".pkl.xz")
 
