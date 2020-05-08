@@ -1,3 +1,5 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import httplib2
 import requests
 import numpy as np
@@ -15,8 +17,9 @@ from sklearn.metrics import plot_confusion_matrix
 from sklearn import metrics
 from Objects.Team import Team
 import scipy.stats as sStats
-import torch
 import os
+import json
+from tqdm import tqdm
 
 
 class DataProcessor(object):
@@ -59,12 +62,14 @@ class DataProcessor(object):
         Events_response = requests.get('https://www.thebluealliance.com/api/v3/events/' + str(self.year) + '/keys',
                                        headers=self.headers)
         Events_json = Events_response.json()
-        for i in range(len(Events_json)):
+        print(Events_json)
+        for i in tqdm(range(len(Events_json))):
             total_match_list = {}
-            print(i / len(Events_json))
             eventMatches = requests.get(
                 'https://www.thebluealliance.com/api/v3/event/' + Events_json[i] + '/matches', headers=self.headers
             ).json()
+            with open('data.json', 'w') as f:
+                json.dump(eventMatches, f)
             totalMatches += len(eventMatches)
             if len(eventMatches) > 0:
                 for event_match in eventMatches:
@@ -102,7 +107,7 @@ class DataProcessor(object):
     def XPR(self, x):
         sparseA = SparseMatrix((self.numberOfValidMatches * 2, len(self.teamList)), np.int32)
         sparseB = SparseMatrix((self.numberOfValidMatches * 2, 1), np.int32)
-        for index, row in self.data.iterrows():  # TODO: Replace with Splicing Columns
+        for index, row in tqdm(self.data.iterrows()):  # TODO: Replace with Splicing Columns
             u = 0
             match_blue_teams = [row["alliances_blue_team_keys_0"], row["alliances_blue_team_keys_1"],
                                 row["alliances_blue_team_keys_2"]]
@@ -121,7 +126,6 @@ class DataProcessor(object):
 
         ans = lsmr(A, B)[0]
         self.currentXPR = pd.Series(ans)
-        print(self.currentXPR)
         np.savetxt("Results/" + x + "PR.txt", ans)
 
     def PCA(self, numberOfComponents, features):
