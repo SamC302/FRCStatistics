@@ -46,19 +46,21 @@ class DataProcessor(object):
             storedteamList = []
         if teamList is not None:
             self.teamList = teamList
-        elif len(storedteamList):
-            self.readTeamListfromtxt(year)
+        elif len(storedteamList) > 0:
+            self.teamList = storedteamList
         else:
             self.collectMatchesTBA()
 
         self.numberOfTeams = len(self.teamList)
         self.numberOfValidMatches = pd.read_sql_table("Info",self.conn)['0'][0]
         self.currentXPR = None
+        self.validEvents = None
 
     def collectMatchesTBA(self):
         totalMatches = 0
         validMatches = 0
         team_list = []
+        validEvents = []
 
         for i in tqdm(range(len(self.events))):
             eventMatches = requests.get(
@@ -68,6 +70,11 @@ class DataProcessor(object):
             if len(eventMatches) > 0:
                 eventJSON = [self.flatten_json(match) for match in eventMatches]
                 pdMatchList = pd.read_json(json.dumps(eventJSON))
+                try:
+                    pdMatchList.loc[:,"score_breakdown_red_totalPoints"][0]
+                    validEvents.append(self.events[i])
+                except:
+                    pass
                 badColumns = pdMatchList.isna().any()
                 for index, item in badColumns.iteritems():
                     if item:
@@ -83,16 +90,32 @@ class DataProcessor(object):
                 try:
                     team_list.extend(pdMatchList.alliances_blue_team_keys_0.unique())
                 except:
+                    pass
+                try:
                     team_list.extend(pdMatchList.alliances_red_team_keys_0.unique())
+                except:
+                    pass
+                try:
+                    team_list.extend(pdMatchList.alliances_blue_team_keys_1.unique())
+                except:
+                    pass
+                try:
+                    team_list.extend(pdMatchList.alliances_red_team_keys_1.unique())
+                except:
+                    pass
 
                 validMatches += len(pdMatchList)
 
         team_list = list(set(team_list))
         team_list.sort()
+
         self.teamList = pd.Series(team_list)
         self.teamList.to_sql("Teams", self.conn, if_exists="replace")
         self.numberOfValidMatches = validMatches
         self.numberOfTeams = len(team_list)
+        self.validEvents = validEvents
+        e = pd.Series(self.validEvents)
+        e.to_sql("Events",self.conn,if_exists="replace")
         info = {"Number of Matches": self.numberOfValidMatches, "Number of Teams": self.numberOfTeams}
         infoS = pd.Series(info)
         print(infoS)
@@ -130,34 +153,32 @@ class DataProcessor(object):
         sparseA = SparseMatrix((self.numberOfValidMatches * 2, len(self.teamList)), np.int32)
         sparseB = SparseMatrix((self.numberOfValidMatches * 2, 1), np.int32)
         allData = []
-        for event in self.events:
-            data = pd.read_sql_table(event, self.conn,
+        for event in tqdm(self.events):
+            try:
+                data = pd.read_sql_table(event, self.conn,
                                      columns=["alliances_blue_team_keys_0", "alliances_blue_team_keys_1",
                                               "alliances_blue_team_keys_2", "alliances_red_team_keys_0",
                                               "alliances_red_team_keys_1", "alliances_red_team_keys_2",
                                               "score_breakdown_blue_" + x, "score_breakdown_red_" + x])
-            allData.append(data)
-        xprData = pd.concat(allData)
-        print(xprData)
-        for index, row in tqdm(xprData.iterrows()):  # TODO: Replace with Splicing Columns
-            u = 0
-            match_blue_teams = [row["alliances_blue_team_keys_0"], row["alliances_blue_team_keys_1"],
-                                row["alliances_blue_team_keys_2"]]
-            match_red_teams = [row["alliances_red_team_keys_0"], row["alliances_red_team_keys_1"],
-                               row["alliances_red_team_keys_2"]]
-            sparseB.append(2 * u, 0, int(row["score_breakdown_blue_" + x]))
-            sparseB.append(2 * u + 1, 0, int(row["score_breakdown_red_" + x]))
-            for team in match_blue_teams:
-                sparseA.append(2 * u, self.findTeam(team), 1)
-            for team in match_red_teams:
-                sparseA.append(2 * u + 1, self.findTeam(team), 1)
-            u += 1
+                for index, row in data.iterrows():
+                    u = 0
+                    match_blue_teams = [row["alliances_blue_team_keys_0"], row["alliances_blue_team_keys_1"],
+                                        row["alliances_blue_team_keys_2"]]
+                    match_red_teams = [row["alliances_red_team_keys_0"], row["alliances_red_team_keys_1"],
+                                       row["alliances_red_team_keys_2"]]
+                    sparseB.append(2 * u, 0, int(row["score_breakdown_blue_" + x]))
+                    sparseB.append(2 * u + 1, 0, int(row["score_breakdown_red_" + x]))
+                    for team in match_blue_teams:
+                        sparseA.append(2 * u, list(self.teamList).index(team), 1)
+                    for team in match_red_teams:
+                        sparseA.append(2 * u + 1, list(self.teamList).index(team), 1)
+                    u += 1
+            except:
+                pass
 
         A = sparseA.tocoo().tocsr()
         B = np.ndarray.flatten(sparseB.tocoo().tocsc().toarray())
 
-        ans = lsmr(A, B)[0]
-        self.currentXPR = pd.Series(ans)
-        oprs = pd.concat(self.teamList, self.currentXPR)
-        oprs.to_sql("Teams", self.conn)
-        np.savetxt("Results/" + x + "PR.txt", ans)
+        ans = pd.Series(lsmr(A, B)[0])
+        oprs = pd.concat({"Team":self.teamList, x+" OPR": ans},axis=1)
+        oprs.to_sql(x+"OPR", self.conn,if_exists="replace")
